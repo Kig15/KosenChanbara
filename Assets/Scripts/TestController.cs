@@ -77,7 +77,7 @@ public class MotionController : MonoBehaviour
             );
         }
     }
-    //あああ
+    //
 
     async Task ReceiveLoop()//進行中、または将来完了する動作
     {
@@ -115,6 +115,7 @@ public class MotionController : MonoBehaviour
 
 
                 string json = Encoding.UTF8.GetString(stream.ToArray());//byte[]にしてからエンコード
+                Debug.Log(json);
 
                 HandleMessage(json);
             }
@@ -139,46 +140,47 @@ public class MotionController : MonoBehaviour
 
         try
         {
-            packet =
-                JsonConvert.DeserializeObject<StatePacket>(
-                    json
-                );
+            packet = JsonConvert.DeserializeObject<StatePacket>(json);
         }
         catch
         {
             return;
         }
-
+        Debug.Log("1");
         if (packet == null)
+        {
             return;
-
+        }
+        Debug.Log("2");
         if (packet.type != "state")
+        {
             return;
-
+        }
+        Debug.Log("3");
         if (packet.controllers == null)
+        {
             return;
-
+        }
+        Debug.Log("4");
         if (!packet.controllers.TryGetValue(controllerId,out ControllerData controller))
         {
             return;
         }
-
+        Debug.Log("5");
         QuaternionData q = controller.quat;
 
         if (q == null)
             return;
 
+        
+
 
         // リポジトリ内のThree.jsサンプルと同じ軸順を
         // とりあえず初期値として使用
-        Quaternion rotation =
-            new Quaternion(
-                q.y,
-                q.z,
-                q.x,
-                q.w
-            );//ここがキモいのはUnityとウェブの３D軸が同じではないから
+        Quaternion rotation = new Quaternion(-q.y, -q.z, q.x, q.w);
+        //ここがキモいのはUnityとウェブの３D軸が同じではないから
 
+        Debug.Log(rotation);
 
         lock (rotationLock)
         {
@@ -262,8 +264,7 @@ public class StatePacket
 
     public int controllerCount;
 
-    public Dictionary<string, ControllerData>
-        controllers;
+    public Dictionary<string, ControllerData> controllers;
 }
 
 
