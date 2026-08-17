@@ -28,6 +28,12 @@ public class MotionController : MonoBehaviour
 
     private bool hasRotation = false;
 
+    private readonly Quaternion sensorToUnity =
+    Quaternion.LookRotation(
+        Vector3.left,
+        Vector3.back
+    );
+
 
     async void Start()
     {
@@ -115,7 +121,7 @@ public class MotionController : MonoBehaviour
 
 
                 string json = Encoding.UTF8.GetString(stream.ToArray());//byte[]にしてからエンコード
-                Debug.Log(json);
+             
 
                 HandleMessage(json);
             }
@@ -146,27 +152,27 @@ public class MotionController : MonoBehaviour
         {
             return;
         }
-        Debug.Log("1");
+        
         if (packet == null)
         {
             return;
         }
-        Debug.Log("2");
+        
         if (packet.type != "state")
         {
             return;
         }
-        Debug.Log("3");
+        
         if (packet.controllers == null)
         {
             return;
         }
-        Debug.Log("4");
+        
         if (!packet.controllers.TryGetValue(controllerId,out ControllerData controller))
         {
             return;
         }
-        Debug.Log("5");
+        
         QuaternionData q = controller.quat;
 
         if (q == null)
@@ -180,7 +186,7 @@ public class MotionController : MonoBehaviour
         Quaternion rotation = new Quaternion(-q.y, -q.z, q.x, q.w);
         //ここがキモいのはUnityとウェブの３D軸が同じではないから
 
-        Debug.Log(rotation);
+        
 
         lock (rotationLock)
         {
@@ -202,7 +208,9 @@ public class MotionController : MonoBehaviour
             rotation = latestRotation;
         }
 
-        transform.rotation = rotation;
+        Quaternion unityRotation = sensorToUnity * rotation * Quaternion.Inverse(sensorToUnity);//座標変換
+
+        transform.localRotation = unityRotation;
     }
 
 
