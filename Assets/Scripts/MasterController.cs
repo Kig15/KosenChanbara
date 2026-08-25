@@ -6,6 +6,8 @@ using Unity.VisualScripting;
 
 
 
+
+
 public class MasterController : MonoBehaviour
 {
     public const float radsX = 45f;
@@ -13,6 +15,23 @@ public class MasterController : MonoBehaviour
 
     [SerializeField] private GameObject Sword1;
     [SerializeField] private GameObject Sword2;
+
+    [SerializeField] private GameObject PlayerObject1;
+    [SerializeField] private GameObject PlayerObject2;
+
+
+    private const float PlayerFront = 3f;//‘Šè‚ª–³’ïR‚Ìê‡‚ÉUŒ‚‚ª’Ê‚Á‚½Û‚Éi‚Ş‹——£
+    private const float PlayerGuardSucess = 1.5f;//‘Šè‚ªƒK[ƒh¬Œ÷‚µ‚½Û‚ÉŒã‘Ş‚·‚é‹——£
+
+    private const float GuardSucessAngle = 70f;//‚±‚ÌŠp“xˆÈã‚X‚O“xˆÈ‰º‚ªƒK[ƒh¬Œ÷Šp“x
+
+    private const float AttackBeginAngle = 45f;//‚±‚ÌŠp“xˆÈ‰º‚ÅUŒ‚ó‘Ô
+    private const float AttackBeginDegs = 40f;//‚±‚ÌŠp‘¬“xˆÈã‚ÅUŒ‚ó‘Ô
+
+    private const float DefenceBeginAngle = 80f;//‚±‚ÌŠp“xˆÈã‚Å–hŒäó‘Ô
+
+
+
 
     private enum SwordState
     {
@@ -25,29 +44,31 @@ public class MasterController : MonoBehaviour
     private struct PlayerSword
     {
         public GameObject sword;//ƒIƒuƒWƒFƒNƒg
-        public Vector3 previewRotation;//‘O‚ÌŠp‘¬“x
-        public Vector3 degs;//Šp‘¬“x
+        public Quaternion previewRotation;//‘O‚ÌŠp“x
+        public float deltaAngle;//Šp‘¬“x
         public SwordState state;//Œ•‚Ìó‘Ô
 
     }
 
     private PlayerSword player1;
     private PlayerSword player2;
+    private SwordState DebugTemp;
+    private SwordState DebugTemp2;
 
-   
-    
+
+
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         player1.sword= Sword1;
-        player1.degs = new Vector3(0, 0, 0);
-        player1.previewRotation = player1.sword.transform.localRotation.eulerAngles;
+        player1.deltaAngle = 0;
+        player1.previewRotation = player1.sword.transform.localRotation;
         player1.state = SwordState.Neutral;
 
         player2.sword = Sword2;
-        player2.previewRotation = player2.sword.transform.localRotation.eulerAngles;
-        player2.degs = new Vector3(0, 0, 0);
+        player2.previewRotation = player2.sword.transform.localRotation;
+        player2.deltaAngle = 0;
         player2.state = SwordState.Neutral;
 
         this.gameObject.transform.position = new Vector3(0, 0, 0);
@@ -59,71 +80,182 @@ public class MasterController : MonoBehaviour
     {
         DebugSwordControl(player1.sword,player2.sword);
 
-        float deltaAngleX_1 = Mathf.DeltaAngle(player1.previewRotation.x, player1.sword.transform.localEulerAngles.x);
-        float deltaAngleX_2 = Mathf.DeltaAngle(player2.previewRotation.x, player2.sword.transform.localEulerAngles.x);
 
-        player1.degs.x = deltaAngleX_1/Time.deltaTime;
-        player2.degs.x = deltaAngleX_2/Time.deltaTime;
+        player1.deltaAngle = Quaternion.Angle(player1.previewRotation, player1.sword.transform.localRotation) / Time.deltaTime;
+        player2.deltaAngle = Quaternion.Angle(player2.previewRotation, player2.sword.transform.localRotation) / Time.deltaTime;
 
-        
+        player1.state = GetSwordState(PlayerObject1, player1.sword, player1.deltaAngle, player1.state);
+        player2.state = GetSwordState(PlayerObject2, player2.sword, player2.deltaAngle, player2.state);
 
-        switch ((Mathf.DeltaAngle(0f,player1.sword.transform.localEulerAngles.x), player1.degs.x)) 
-        { 
-            case(>= -70,>=5):
-                if(player1.state != SwordState.AfterAttack)
-                     player1.state = SwordState.Attack;
-                break;
-            case ( <= -70, <5):
-                player1.state = SwordState.Defence; 
-                break;
-            default:
-                player1.state = SwordState.Neutral;
-                break;
-        }
+        float SwordAngle = GetSwordAngle(player1.sword, player2.sword);
 
-        switch (Mathf.DeltaAngle(0f,player2.sword.transform.localEulerAngles.x))
+        if (player1.state != DebugTemp|| player2.state != DebugTemp2)
         {
-            case ( >= -40):
-                if (player2.state != SwordState.AfterAttack)
-                    player2.state = SwordState.Attack;
-                break;
-            case (<= -70):
-                player2.state = SwordState.Defence;
-                break;
-            default:
-                player2.state = SwordState.Neutral;
-                break;
+            Debug.Log("Player1:" + player1.state + "  Player2:" + player2.state + SwordAngle);
+
         }
 
-        Debug.Log("Player1:"+ player1.state + " Rotaion:" + Mathf.DeltaAngle(0f, player1.sword.transform.localEulerAngles.x));
-       // Debug.Log("Player2:" + player2.state);
+      
 
-        //switch ((player1.state, player2.state)) {
-        //    case (SwordState.Attack, SwordState.Neutral):
-        //        this.gameObject.transform.position += new Vector3(0,0,5f);
-        //        player1.state = SwordState.AfterAttack;
-        //        break;
-        //    case (SwordState.Neutral, SwordState.Attack):
-        //        this.gameObject.transform.position += new Vector3(0, 0, -5f);
-        //        player2.state = SwordState.AfterAttack;
-        //        break;
-        //    case (SwordState.Attack, SwordState.Defence):
-        //        this.gameObject.transform.position += new Vector3(0, 0, -2.5f);
-        //        player1.state = SwordState.AfterAttack;
-        //        break;
-        //    case (SwordState.Defence,SwordState.Attack):
-        //        this.gameObject.transform.position += new Vector3(0, 0, 2.5f);
-        //        player2.state = SwordState.AfterAttack;
-        //        break;
-        //    default:
 
-        //        break;
 
-        //}
+        DebugTemp = player1.state;
+        DebugTemp2 = player2.state;
 
-        player1.previewRotation = player1.sword.transform.localEulerAngles;
-        player2.previewRotation = player2.sword.transform.localEulerAngles;
+       
 
+        switch ((player1.state, player2.state))
+        {//ƒvƒŒƒCƒ„[‚P‚Ì³–Ê‚ªZ²³–Ê
+            case (SwordState.Attack, SwordState.Neutral):
+                this.gameObject.transform.position += new Vector3(0, 0, PlayerFront);
+                player1.state = SwordState.AfterAttack;
+              
+                break;
+            case (SwordState.Neutral, SwordState.Attack):
+                this.gameObject.transform.position += new Vector3(0, 0, -PlayerFront);
+                player2.state = SwordState.AfterAttack;
+                break;
+
+            case (SwordState.Attack, SwordState.AfterAttack):
+                this.gameObject.transform.position += new Vector3(0, 0, PlayerFront);
+                player2.state = SwordState.AfterAttack;
+                break;
+            case (SwordState.AfterAttack, SwordState.Attack):
+                this.gameObject.transform.position += new Vector3(0, 0, -PlayerFront);
+                player2.state = SwordState.AfterAttack;
+                break;
+
+            case (SwordState.Attack, SwordState.Defence):
+               
+                if (SwordAngle > GuardSucessAngle)
+                {
+                    this.gameObject.transform.position += new Vector3(0, 0, -PlayerGuardSucess);//ƒvƒŒƒCƒ„[‚QƒK[ƒh¬Œ÷
+                    Debug.Log("GuardSucess");
+                }
+                else 
+                {
+                    this.gameObject.transform.position += new Vector3(0, 0, PlayerGuardSucess);//ƒvƒŒƒCƒ„[‚QƒK[ƒh¸”s
+                    Debug.Log("GuardFaild"+ SwordAngle);
+                }
+                    player1.state = SwordState.AfterAttack;
+                break;
+            case (SwordState.Defence, SwordState.Attack):
+                if (SwordAngle > GuardSucessAngle)
+                {
+                    this.gameObject.transform.position += new Vector3(0, 0, PlayerGuardSucess);//ƒvƒŒƒCƒ„[‚PƒK[ƒh¬Œ÷
+                    Debug.Log("GuardSucess");
+                }
+                else
+                {
+                    this.gameObject.transform.position += new Vector3(0, 0, -PlayerGuardSucess);//ƒvƒŒƒCƒ„[‚PƒK[ƒh¸”s
+                    Debug.Log("GuardFaild" + SwordAngle);
+                }
+                player2.state = SwordState.AfterAttack;
+                break;
+
+
+            default:
+
+                break;
+
+        }
+
+        player1.previewRotation = player1.sword.transform.localRotation;
+        player2.previewRotation = player2.sword.transform.localRotation;
+
+    }
+
+    private SwordState GetSwordState(GameObject player,GameObject sword,float angularSpeed,SwordState currentState)
+    {
+        Vector3 swordDirection =sword.transform.forward;
+
+        Vector3 playerForward =player.transform.forward;
+
+        Vector3 playerUp =player.transform.up;
+
+        Vector3 playerRight =player.transform.right;
+
+
+        // =====================================
+        // UŒ‚p¨
+        //
+        // Œ•‚ªƒvƒŒƒCƒ„[‚Ì‘O•ûŒü‚É
+        // ‚Ç‚ê‚­‚ç‚¢‹ß‚¢‚©
+        // =====================================
+
+        float Angle = Vector3.Angle(swordDirection,playerForward);
+       
+
+
+        // =====================================
+        // Œ•‚ğU‚èã‚°‚½p¨
+        //
+        // AfterAttack‚©‚çÄUŒ‚‰Â”\‚É‚·‚é‚½‚ß‚É
+        // Œ•‚ªã•ûŒü‚Ü‚Å–ß‚Á‚½‚©‚ğŒ©‚é
+        // =====================================
+
+        float readyAngle =Vector3.Angle(swordDirection,playerUp);
+
+
+   
+
+        // =====================================
+        // UŒ‚Œã
+        // =====================================
+
+        if (currentState == SwordState.AfterAttack)
+        {
+            // Œ•‚ğã‚Ü‚Å–ß‚³‚È‚¢ŒÀ‚è
+            // ÄUŒ‚‚Å‚«‚È‚¢
+            if (Angle >= DefenceBeginAngle)
+            {
+                return SwordState.Neutral;
+            }
+
+            return SwordState.AfterAttack;
+        }
+
+
+        // =====================================
+        // –hŒä
+        // =====================================
+
+        if (Angle >= DefenceBeginAngle)
+        {
+            return SwordState.Defence;
+        }
+
+
+        // =====================================
+        // UŒ‚
+        // =====================================
+
+        if (Angle <= AttackBeginAngle &&angularSpeed >= AttackBeginDegs)
+        {
+            return SwordState.Attack;
+        }
+
+
+        // =====================================
+        // ‚»‚êˆÈŠO
+        // =====================================
+
+        return SwordState.Neutral;
+    }
+
+    private float GetSwordAngle(GameObject sword1,GameObject sword2)
+    {
+        Vector3 direction1 =sword1.transform.forward;
+
+        Vector3 direction2 =sword2.transform.forward;
+
+        float angle =Vector3.Angle(direction1,direction2);
+
+        // Œ•æ‚ÌŒü‚«‚Í–³‹‚µ‚Ä
+        // u2–{‚Ì’¼ü‚Æ‚µ‚Ä‚ÌŠp“xv‚É‚·‚é
+        angle =Mathf.Min(angle,180f - angle);
+
+        return angle;
     }
 
     private void DebugSwordControl(GameObject sword1,GameObject sword2)
