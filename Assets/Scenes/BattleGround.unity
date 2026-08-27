@@ -441,7 +441,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 37ed75c421fe9004ea4a353cd70c7b80, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MotionController
-  serverUrl: wss://koreisai.ryutolab.com/ws
+  serverUrl: ws://localhost:8082
   controllerId: controller_003
 --- !u!4 &550392073
 Transform:
@@ -997,7 +997,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 37ed75c421fe9004ea4a353cd70c7b80, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MotionController
-  serverUrl: wss://koreisai.ryutolab.com/ws
+  serverUrl: ws://localhost:8082
   controllerId: controller_002
 --- !u!1 &1697971317
 GameObject:
