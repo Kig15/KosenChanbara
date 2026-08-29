@@ -557,8 +557,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 37ed75c421fe9004ea4a353cd70c7b80, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MotionController
-  serverUrl: wss://koreisai.ryutolab.com/ws
-  controllerId: controller_002
+  slot: 0
+  recenterOnFirstSample: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

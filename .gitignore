@@ -67,6 +67,10 @@ sysinfo.txt
 # Crashlytics generated file
 crashlytics-build.properties
 
+# Phone controller secret
+/Assets/StreamingAssets/controller-connection.json
+/Assets/StreamingAssets/controller-connection.json.meta
+
 # Packed Addressables
 /[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata/*/*.bin*
 

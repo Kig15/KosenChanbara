@@ -1,37 +1,22 @@
-using System.Runtime.CompilerServices;
 using UnityEngine;
-using UnityEngine.UIElements;
 using UnityEngine.InputSystem;
-using Unity.VisualScripting;
 
-
-
-
-
-public class MasterController : MonoBehaviour
+public sealed class MasterController : MonoBehaviour
 {
     public const float radsX = 45f;
     public const float radsZ = 45f;
 
     [SerializeField] private GameObject Sword1;
     [SerializeField] private GameObject Sword2;
-
     [SerializeField] private GameObject PlayerObject1;
     [SerializeField] private GameObject PlayerObject2;
 
-
-    private const float PlayerFront = 3f;//ëäéËÇ™ñ≥íÔçRÇÃèÍçáÇ…çUåÇÇ™í Ç¡ÇΩç€Ç…êiÇﬁãóó£
-    private const float PlayerGuardSucess = 1.5f;//ëäéËÇ™ÉKÅ[Éhê¨å˜ÇµÇΩç€Ç…å„ëﬁÇ∑ÇÈãóó£
-
-    private const float GuardSucessAngle = 70f;//Ç±ÇÃäpìxà»è„ÇXÇOìxà»â∫Ç™ÉKÅ[Éhê¨å˜äpìx
-
-    private const float AttackBeginAngle = 45f;//Ç±ÇÃäpìxà»â∫Ç≈çUåÇèÛë‘
-    private const float AttackBeginDegs = 40f;//Ç±ÇÃäpë¨ìxà»è„Ç≈çUåÇèÛë‘
-
-    private const float DefenceBeginAngle = 80f;//Ç±ÇÃäpìxà»è„Ç≈ñhå‰èÛë‘
-
-
-
+    private const float PlayerFront = 3f;
+    private const float PlayerGuardSucess = 1.5f;
+    private const float GuardSucessAngle = 70f;
+    private const float AttackBeginAngle = 45f;
+    private const float AttackBeginDegs = 40f;
+    private const float AttackResetAngle = 80f;
 
     private enum SwordState
     {
@@ -43,367 +28,234 @@ public class MasterController : MonoBehaviour
 
     private struct PlayerSword
     {
-        public GameObject sword;//ÉIÉuÉWÉFÉNÉg
-        public Quaternion previewRotation;//ëOÇÃäpìx
-        public float deltaAngle;//äpë¨ìx
-        public SwordState state;//åïÇÃèÛë‘
-
+        public GameObject Sword;
+        public MotionController Motion;
+        public Quaternion PreviousRotation;
+        public float AngularSpeed;
+        public SwordState State;
     }
 
     private PlayerSword player1;
     private PlayerSword player2;
-    private SwordState DebugTemp;
-    private SwordState DebugTemp2;
+    private SwordState previousDebugState1;
+    private SwordState previousDebugState2;
 
-
-
-
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    private void Start()
     {
-        player1.sword= Sword1;
-        player1.deltaAngle = 0;
-        player1.previewRotation = player1.sword.transform.localRotation;
-        player1.state = SwordState.Neutral;
-
-        player2.sword = Sword2;
-        player2.previewRotation = player2.sword.transform.localRotation;
-        player2.deltaAngle = 0;
-        player2.state = SwordState.Neutral;
-
-        this.gameObject.transform.position = new Vector3(0, 0, 0);
-        this.gameObject.transform.rotation = new Quaternion(0,0,0,0);
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        DebugSwordControl(player1.sword,player2.sword);
-
-
-        player1.deltaAngle = Quaternion.Angle(player1.previewRotation, player1.sword.transform.localRotation) / Time.deltaTime;
-        player2.deltaAngle = Quaternion.Angle(player2.previewRotation, player2.sword.transform.localRotation) / Time.deltaTime;
-
-        player1.state = GetSwordState(PlayerObject1, player1.sword, player1.deltaAngle, player1.state);
-        player2.state = GetSwordState(PlayerObject2, player2.sword, player2.deltaAngle, player2.state);
-
-        float SwordAngle = GetSwordAngle(player1.sword, player2.sword);
-
-        if (player1.state != DebugTemp|| player2.state != DebugTemp2)
+        if (Sword1 == null || Sword2 == null || PlayerObject1 == null || PlayerObject2 == null)
         {
-            Debug.Log("Player1:" + player1.state + "  Player2:" + player2.state + SwordAngle);
-
+            Debug.LogError("MasterController requires both swords and both player objects.", this);
+            enabled = false;
+            return;
         }
 
-      
+        player1 = CreatePlayerSword(Sword1);
+        player2 = CreatePlayerSword(Sword2);
 
+        transform.position = Vector3.zero;
+        transform.rotation = Quaternion.identity;
+    }
 
+    private static PlayerSword CreatePlayerSword(GameObject sword)
+    {
+        return new PlayerSword
+        {
+            Sword = sword,
+            Motion = sword.GetComponent<MotionController>(),
+            PreviousRotation = sword.transform.localRotation,
+            AngularSpeed = 0f,
+            State = SwordState.Neutral
+        };
+    }
 
-        DebugTemp = player1.state;
-        DebugTemp2 = player2.state;
+    private void Update()
+    {
+        DebugSwordControl(ref player1, ref player2);
 
-       
+        player1.AngularSpeed = GetAngularSpeed(player1);
+        player2.AngularSpeed = GetAngularSpeed(player2);
 
-        switch ((player1.state, player2.state))
-        {//ÉvÉåÉCÉÑÅ[ÇPÇÃê≥ñ Ç™Zé≤ê≥ñ 
+        player1.State = GetSwordState(
+            PlayerObject1,
+            player1.Sword,
+            player1.AngularSpeed,
+            player1.State,
+            player1.Motion != null && player1.Motion.GuardHeld);
+        player2.State = GetSwordState(
+            PlayerObject2,
+            player2.Sword,
+            player2.AngularSpeed,
+            player2.State,
+            player2.Motion != null && player2.Motion.GuardHeld);
+
+        float swordAngle = GetSwordAngle(player1.Sword, player2.Sword);
+        if (player1.State != previousDebugState1 || player2.State != previousDebugState2)
+        {
+            Debug.Log($"Player1:{player1.State}  Player2:{player2.State} {swordAngle}");
+        }
+
+        previousDebugState1 = player1.State;
+        previousDebugState2 = player2.State;
+
+        // The existing attack and guard-result calculations are intentionally
+        // unchanged. Only the source of the Defence state is now the phone button.
+        switch ((player1.State, player2.State))
+        {
             case (SwordState.Attack, SwordState.Neutral):
-                this.gameObject.transform.position += new Vector3(0, 0, PlayerFront);
-                player1.state = SwordState.AfterAttack;
-              
+                transform.position += new Vector3(0, 0, PlayerFront);
+                player1.State = SwordState.AfterAttack;
                 break;
             case (SwordState.Neutral, SwordState.Attack):
-                this.gameObject.transform.position += new Vector3(0, 0, -PlayerFront);
-                player2.state = SwordState.AfterAttack;
+                transform.position += new Vector3(0, 0, -PlayerFront);
+                player2.State = SwordState.AfterAttack;
                 break;
-
             case (SwordState.Attack, SwordState.AfterAttack):
-                this.gameObject.transform.position += new Vector3(0, 0, PlayerFront);
-                player2.state = SwordState.AfterAttack;
+                transform.position += new Vector3(0, 0, PlayerFront);
+                player2.State = SwordState.AfterAttack;
                 break;
             case (SwordState.AfterAttack, SwordState.Attack):
-                this.gameObject.transform.position += new Vector3(0, 0, -PlayerFront);
-                player2.state = SwordState.AfterAttack;
+                transform.position += new Vector3(0, 0, -PlayerFront);
+                player2.State = SwordState.AfterAttack;
                 break;
-
             case (SwordState.Attack, SwordState.Defence):
-               
-                if (SwordAngle > GuardSucessAngle)
+                if (swordAngle > GuardSucessAngle)
                 {
-                    this.gameObject.transform.position += new Vector3(0, 0, -PlayerGuardSucess);//ÉvÉåÉCÉÑÅ[ÇQÉKÅ[Éhê¨å˜
-                    Debug.Log("GuardSucess");
-                }
-                else 
-                {
-                    this.gameObject.transform.position += new Vector3(0, 0, PlayerGuardSucess);//ÉvÉåÉCÉÑÅ[ÇQÉKÅ[Éhé∏îs
-                    Debug.Log("GuardFaild"+ SwordAngle);
-                }
-                    player1.state = SwordState.AfterAttack;
-                break;
-            case (SwordState.Defence, SwordState.Attack):
-                if (SwordAngle > GuardSucessAngle)
-                {
-                    this.gameObject.transform.position += new Vector3(0, 0, PlayerGuardSucess);//ÉvÉåÉCÉÑÅ[ÇPÉKÅ[Éhê¨å˜
+                    transform.position += new Vector3(0, 0, -PlayerGuardSucess);
                     Debug.Log("GuardSucess");
                 }
                 else
                 {
-                    this.gameObject.transform.position += new Vector3(0, 0, -PlayerGuardSucess);//ÉvÉåÉCÉÑÅ[ÇPÉKÅ[Éhé∏îs
-                    Debug.Log("GuardFaild" + SwordAngle);
+                    transform.position += new Vector3(0, 0, PlayerGuardSucess);
+                    Debug.Log("GuardFaild" + swordAngle);
                 }
-                player2.state = SwordState.AfterAttack;
+                player1.State = SwordState.AfterAttack;
                 break;
-
-
-            default:
-
+            case (SwordState.Defence, SwordState.Attack):
+                if (swordAngle > GuardSucessAngle)
+                {
+                    transform.position += new Vector3(0, 0, PlayerGuardSucess);
+                    Debug.Log("GuardSucess");
+                }
+                else
+                {
+                    transform.position += new Vector3(0, 0, -PlayerGuardSucess);
+                    Debug.Log("GuardFaild" + swordAngle);
+                }
+                player2.State = SwordState.AfterAttack;
                 break;
-
         }
 
-        player1.previewRotation = player1.sword.transform.localRotation;
-        player2.previewRotation = player2.sword.transform.localRotation;
-
+        player1.PreviousRotation = player1.Sword.transform.localRotation;
+        player2.PreviousRotation = player2.Sword.transform.localRotation;
     }
 
-    private SwordState GetSwordState(GameObject player,GameObject sword,float angularSpeed,SwordState currentState)
+    private static float GetAngularSpeed(PlayerSword player)
     {
-        Vector3 swordDirection =sword.transform.forward;
-
-        Vector3 playerForward =player.transform.forward;
-
-        Vector3 playerUp =player.transform.up;
-
-        Vector3 playerRight =player.transform.right;
-
-
-        // =====================================
-        // çUåÇépê®
-        //
-        // åïÇ™ÉvÉåÉCÉÑÅ[ÇÃëOï˚å¸Ç…
-        // Ç«ÇÍÇ≠ÇÁÇ¢ãﬂÇ¢Ç©
-        // =====================================
-
-        float Angle = Vector3.Angle(swordDirection,playerForward);
-       
-
-
-        // =====================================
-        // åïÇêUÇËè„Ç∞ÇΩépê®
-        //
-        // AfterAttackÇ©ÇÁçƒçUåÇâ¬î\Ç…Ç∑ÇÈÇΩÇﬂÇ…
-        // åïÇ™è„ï˚å¸Ç‹Ç≈ñﬂÇ¡ÇΩÇ©Çå©ÇÈ
-        // =====================================
-
-        float readyAngle =Vector3.Angle(swordDirection,playerUp);
-
-
-   
-
-        // =====================================
-        // çUåÇå„
-        // =====================================
-
-        if (currentState == SwordState.AfterAttack)
+        if (player.Motion != null && player.Motion.IsConnected)
         {
-            // åïÇè„Ç‹Ç≈ñﬂÇ≥Ç»Ç¢å¿ÇË
-            // çƒçUåÇÇ≈Ç´Ç»Ç¢
-            if (Angle >= DefenceBeginAngle)
-            {
-                return SwordState.Neutral;
-            }
-
-            return SwordState.AfterAttack;
+            return player.Motion.AngularSpeedDegrees;
         }
 
+        float deltaTime = Mathf.Max(Time.deltaTime, 0.00001f);
+        return Quaternion.Angle(player.PreviousRotation, player.Sword.transform.localRotation) / deltaTime;
+    }
 
-        // =====================================
-        // ñhå‰
-        // =====================================
-
-        if (Angle >= DefenceBeginAngle)
+    private static SwordState GetSwordState(
+        GameObject player,
+        GameObject sword,
+        float angularSpeed,
+        SwordState currentState,
+        bool guardHeld)
+    {
+        // Guard is explicit. The old "sword angle >= 80 degrees" defence trigger
+        // has been removed so an accidental pose cannot enter Defence.
+        if (guardHeld)
         {
             return SwordState.Defence;
         }
 
+        Vector3 swordDirection = sword.transform.forward;
+        float angle = Vector3.Angle(swordDirection, player.transform.forward);
 
-        // =====================================
-        // çUåÇ
-        // =====================================
+        if (currentState == SwordState.AfterAttack)
+        {
+            return angle >= AttackResetAngle ? SwordState.Neutral : SwordState.AfterAttack;
+        }
 
-        if (Angle <= AttackBeginAngle &&angularSpeed >= AttackBeginDegs)
+        if (angle <= AttackBeginAngle && angularSpeed >= AttackBeginDegs)
         {
             return SwordState.Attack;
         }
 
-
-        // =====================================
-        // ÇªÇÍà»äO
-        // =====================================
-
         return SwordState.Neutral;
     }
 
-    private float GetSwordAngle(GameObject sword1,GameObject sword2)
+    private static float GetSwordAngle(GameObject sword1, GameObject sword2)
     {
-        Vector3 direction1 =sword1.transform.forward;
-
-        Vector3 direction2 =sword2.transform.forward;
-
-        float angle =Vector3.Angle(direction1,direction2);
-
-        // åïêÊÇÃå¸Ç´ÇÕñ≥éãÇµÇƒ
-        // Åu2ñ{ÇÃíºê¸Ç∆ÇµÇƒÇÃäpìxÅvÇ…Ç∑ÇÈ
-        angle =Mathf.Min(angle,180f - angle);
-
-        return angle;
+        float angle = Vector3.Angle(sword1.transform.forward, sword2.transform.forward);
+        return Mathf.Min(angle, 180f - angle);
     }
 
-    private void DebugSwordControl(GameObject sword1,GameObject sword2)
+    private static void DebugSwordControl(ref PlayerSword first, ref PlayerSword second)
     {
         if (Keyboard.current == null)
+        {
             return;
-
-        float deltaTime = Time.deltaTime;
-
-
-        // ==============================
-        // åï1
-        // ñÓàÛÉLÅ[
-        // ==============================
-
-        Vector3 sword1Euler =
-            sword1.transform.localEulerAngles;
-
-        float sword1X = sword1Euler.x;
-        float sword1Z = sword1Euler.z;
-
-
-        // Å™
-        // Xé≤Ç… +11 deg/s
-        // ç≈ëÂ90ìx
-        if (Keyboard.current.upArrowKey.isPressed)
-        {
-            sword1X += radsX * deltaTime;
-
-            sword1X =
-                Mathf.Clamp(
-                    sword1X,
-                    0f,
-                    90f
-                );
         }
 
-
-        // Å´
-        // Xé≤Ç… -11 deg/s
-        // ç≈è¨0ìx
-        if (Keyboard.current.downArrowKey.isPressed)
+        if (first.Motion == null || !first.Motion.IsConnected)
         {
-            sword1X -= radsX * deltaTime;
-
-            sword1X =
-                Mathf.Clamp(
-                    sword1X,
-                    0f,
-                    90f
-                );
+            ApplyKeyboardRotation(
+                first.Sword,
+                Keyboard.current.upArrowKey.isPressed,
+                Keyboard.current.downArrowKey.isPressed,
+                Keyboard.current.leftArrowKey.isPressed,
+                Keyboard.current.rightArrowKey.isPressed);
         }
 
-
-        // Å©
-        // Zé≤Ç… +10 deg/s
-        if (Keyboard.current.leftArrowKey.isPressed)
+        if (second.Motion == null || !second.Motion.IsConnected)
         {
-            sword1Z += radsZ * deltaTime;
+            ApplyKeyboardRotation(
+                second.Sword,
+                Keyboard.current.wKey.isPressed,
+                Keyboard.current.sKey.isPressed,
+                Keyboard.current.aKey.isPressed,
+                Keyboard.current.dKey.isPressed);
+        }
+    }
+
+    private static void ApplyKeyboardRotation(
+        GameObject sword,
+        bool increaseX,
+        bool decreaseX,
+        bool increaseZ,
+        bool decreaseZ)
+    {
+        if (!increaseX && !decreaseX && !increaseZ && !decreaseZ)
+        {
+            return;
         }
 
-
-        // Å®
-        // Zé≤Ç… -10 deg/s
-        if (Keyboard.current.rightArrowKey.isPressed)
+        Vector3 euler = sword.transform.localEulerAngles;
+        float x = euler.x;
+        float z = euler.z;
+        if (increaseX)
         {
-            sword1Z -= radsZ * deltaTime;
+            x = Mathf.Clamp(x + radsX * Time.deltaTime, 0f, 90f);
+        }
+        if (decreaseX)
+        {
+            x = Mathf.Clamp(x - radsX * Time.deltaTime, 0f, 90f);
+        }
+        if (increaseZ)
+        {
+            z += radsZ * Time.deltaTime;
+        }
+        if (decreaseZ)
+        {
+            z -= radsZ * Time.deltaTime;
         }
 
-
-        sword1.transform.localRotation =
-            Quaternion.Euler(
-                sword1X,
-                0f,
-                sword1Z
-            );
-
-
-        // ==============================
-        // åï2
-        // WASD
-        // ==============================
-
-        Vector3 sword2Euler =
-            sword2.transform.localEulerAngles;
-
-        float sword2X = sword2Euler.x;
-        float sword2Z = sword2Euler.z;
-
-
-        // W
-        // Xé≤Ç… +11 deg/s
-        // ç≈ëÂ90ìx
-        if (Keyboard.current.wKey.isPressed)
-        {
-            sword2X += radsX * deltaTime;
-
-            sword2X =
-                Mathf.Clamp(
-                    sword2X,
-                    0f,
-                    90f
-                );
-        }
-
-
-        // S
-        // Xé≤Ç… -11 deg/s
-        // ç≈è¨0ìx
-        if (Keyboard.current.sKey.isPressed)
-        {
-            sword2X -= radsX * deltaTime;
-
-            sword2X =
-                Mathf.Clamp(
-                    sword2X,
-                    0f,
-                    90f
-                );
-        }
-
-
-        // A
-        // Zé≤Ç… +10 deg/s
-        if (Keyboard.current.aKey.isPressed)
-        {
-            sword2Z += radsZ * deltaTime;
-        }
-
-
-        // D
-        // Zé≤Ç… -10 deg/s
-        if (Keyboard.current.dKey.isPressed)
-        {
-            sword2Z -= radsZ * deltaTime;
-        }
-
-
-        sword2.transform.localRotation =
-            Quaternion.Euler(
-                sword2X,
-                0f,
-                sword2Z
-            );
+        sword.transform.localRotation = Quaternion.Euler(x, 0f, z);
     }
 }
-
-    
-
-
-

@@ -1,0 +1,4 @@
+{
+  "signalingUrl": "wss://controller.example.jp/signal",
+  "hostKey": "replace-with-a-long-random-secret"
+}

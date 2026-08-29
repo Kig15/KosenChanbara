@@ -441,8 +441,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 37ed75c421fe9004ea4a353cd70c7b80, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MotionController
-  serverUrl: ws://localhost:8082
-  controllerId: controller_003
+  slot: 1
+  recenterOnFirstSample: 1
 --- !u!4 &550392073
 Transform:
   m_ObjectHideFlags: 0
@@ -997,8 +997,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 37ed75c421fe9004ea4a353cd70c7b80, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MotionController
-  serverUrl: ws://localhost:8082
-  controllerId: controller_002
+  slot: 0
+  recenterOnFirstSample: 1
 --- !u!1 &1697971317
 GameObject:
   m_ObjectHideFlags: 0
