@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -39,6 +40,9 @@ public sealed class MasterController : MonoBehaviour
     private PlayerSword player2;
     private SwordState previousDebugState1;
     private SwordState previousDebugState2;
+    private uint impactSequence;
+
+    public event Action<CombatImpact> CombatImpactResolved;
 
     private void Start()
     {
@@ -97,56 +101,141 @@ public sealed class MasterController : MonoBehaviour
         previousDebugState1 = player1.State;
         previousDebugState2 = player2.State;
 
-        // The existing attack and guard-result calculations are intentionally
-        // unchanged. Only the source of the Defence state is now the phone button.
         switch ((player1.State, player2.State))
         {
             case (SwordState.Attack, SwordState.Neutral):
-                transform.position += new Vector3(0, 0, PlayerFront);
-                player1.State = SwordState.AfterAttack;
+                ResolveImpact(
+                    ref player1,
+                    CombatPlayer.Player1,
+                    PlayerObject1,
+                    CombatPlayer.Player2,
+                    PlayerObject2,
+                    player2.Sword,
+                    CombatImpactOutcome.NormalHit,
+                    new Vector3(0, 0, PlayerFront));
                 break;
             case (SwordState.Neutral, SwordState.Attack):
-                transform.position += new Vector3(0, 0, -PlayerFront);
-                player2.State = SwordState.AfterAttack;
+                ResolveImpact(
+                    ref player2,
+                    CombatPlayer.Player2,
+                    PlayerObject2,
+                    CombatPlayer.Player1,
+                    PlayerObject1,
+                    player1.Sword,
+                    CombatImpactOutcome.NormalHit,
+                    new Vector3(0, 0, -PlayerFront));
                 break;
             case (SwordState.Attack, SwordState.AfterAttack):
-                transform.position += new Vector3(0, 0, PlayerFront);
-                player2.State = SwordState.AfterAttack;
+                ResolveImpact(
+                    ref player1,
+                    CombatPlayer.Player1,
+                    PlayerObject1,
+                    CombatPlayer.Player2,
+                    PlayerObject2,
+                    player2.Sword,
+                    CombatImpactOutcome.NormalHit,
+                    new Vector3(0, 0, PlayerFront));
                 break;
             case (SwordState.AfterAttack, SwordState.Attack):
-                transform.position += new Vector3(0, 0, -PlayerFront);
-                player2.State = SwordState.AfterAttack;
+                ResolveImpact(
+                    ref player2,
+                    CombatPlayer.Player2,
+                    PlayerObject2,
+                    CombatPlayer.Player1,
+                    PlayerObject1,
+                    player1.Sword,
+                    CombatImpactOutcome.NormalHit,
+                    new Vector3(0, 0, -PlayerFront));
                 break;
             case (SwordState.Attack, SwordState.Defence):
                 if (swordAngle > GuardSucessAngle)
                 {
-                    transform.position += new Vector3(0, 0, -PlayerGuardSucess);
                     Debug.Log("GuardSucess");
+                    ResolveImpact(
+                        ref player1,
+                        CombatPlayer.Player1,
+                        PlayerObject1,
+                        CombatPlayer.Player2,
+                        PlayerObject2,
+                        player2.Sword,
+                        CombatImpactOutcome.GuardSuccess,
+                        new Vector3(0, 0, -PlayerGuardSucess));
                 }
                 else
                 {
-                    transform.position += new Vector3(0, 0, PlayerGuardSucess);
                     Debug.Log("GuardFaild" + swordAngle);
+                    ResolveImpact(
+                        ref player1,
+                        CombatPlayer.Player1,
+                        PlayerObject1,
+                        CombatPlayer.Player2,
+                        PlayerObject2,
+                        player2.Sword,
+                        CombatImpactOutcome.GuardFailure,
+                        new Vector3(0, 0, PlayerGuardSucess));
                 }
-                player1.State = SwordState.AfterAttack;
                 break;
             case (SwordState.Defence, SwordState.Attack):
                 if (swordAngle > GuardSucessAngle)
                 {
-                    transform.position += new Vector3(0, 0, PlayerGuardSucess);
                     Debug.Log("GuardSucess");
+                    ResolveImpact(
+                        ref player2,
+                        CombatPlayer.Player2,
+                        PlayerObject2,
+                        CombatPlayer.Player1,
+                        PlayerObject1,
+                        player1.Sword,
+                        CombatImpactOutcome.GuardSuccess,
+                        new Vector3(0, 0, PlayerGuardSucess));
                 }
                 else
                 {
-                    transform.position += new Vector3(0, 0, -PlayerGuardSucess);
                     Debug.Log("GuardFaild" + swordAngle);
+                    ResolveImpact(
+                        ref player2,
+                        CombatPlayer.Player2,
+                        PlayerObject2,
+                        CombatPlayer.Player1,
+                        PlayerObject1,
+                        player1.Sword,
+                        CombatImpactOutcome.GuardFailure,
+                        new Vector3(0, 0, -PlayerGuardSucess));
                 }
-                player2.State = SwordState.AfterAttack;
                 break;
         }
 
         player1.PreviousRotation = player1.Sword.transform.localRotation;
         player2.PreviousRotation = player2.Sword.transform.localRotation;
+    }
+
+    private void ResolveImpact(
+        ref PlayerSword attacker,
+        CombatPlayer attackerId,
+        GameObject attackerObject,
+        CombatPlayer defenderId,
+        GameObject defenderObject,
+        GameObject defenderSword,
+        CombatImpactOutcome outcome,
+        Vector3 arenaDisplacement)
+    {
+        transform.position += arenaDisplacement;
+        attacker.State = SwordState.AfterAttack;
+
+        Vector3 worldPosition = outcome == CombatImpactOutcome.NormalHit
+            ? defenderObject.transform.position
+            : Vector3.Lerp(attacker.Sword.transform.position, defenderSword.transform.position, 0.5f);
+        Vector3 direction = defenderObject.transform.position - attackerObject.transform.position;
+        CombatImpact impact = new CombatImpact(
+            ++impactSequence,
+            attackerId,
+            defenderId,
+            outcome,
+            worldPosition,
+            direction,
+            arenaDisplacement.magnitude);
+
+        CombatImpactResolved?.Invoke(impact);
     }
 
     private static float GetAngularSpeed(PlayerSword player)
