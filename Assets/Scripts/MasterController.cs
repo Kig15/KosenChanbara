@@ -74,6 +74,15 @@ public sealed class MasterController : MonoBehaviour
 
     private void Update()
     {
+        if (CombatHitStopController.IsGameplayStopped)
+        {
+            // Keep the keyboard fallback's rotation baseline synchronized so
+            // resuming cannot manufacture a large one-frame angular speed.
+            player1.PreviousRotation = player1.Sword.transform.localRotation;
+            player2.PreviousRotation = player2.Sword.transform.localRotation;
+            return;
+        }
+
         DebugSwordControl(ref player1, ref player2);
 
         player1.AngularSpeed = GetAngularSpeed(player1);

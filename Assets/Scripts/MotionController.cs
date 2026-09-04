@@ -72,6 +72,13 @@ public sealed class MotionController : MonoBehaviour
         }
 
         Quaternion relativeRotation = Quaternion.Inverse(referenceRotation) * sample.Rotation;
+        if (CombatHitStopController.IsGameplayStopped)
+        {
+            // Samples and angular speed stay current during hit stop, but their
+            // pose is not presented until combat resumes.
+            return;
+        }
+
         transform.localRotation = baseRotation * relativeRotation;
     }
 
